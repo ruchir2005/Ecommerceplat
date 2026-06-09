@@ -13,20 +13,32 @@ const getProducts = async (req, res, next) => {
       ? { name: { $regex: req.query.keyword, $options: "i" } }
       : {};
     const category = req.query.category ? { category: req.query.category } : {};
+    const featured = req.query.featured === "true" ? { isFeatured: true } : {};
 
-    const filters = { ...keyword, ...category };
+    const filters = { ...keyword, ...category, ...featured };
+
+    // Sort
+    let sortOption = { createdAt: -1 }; // default: newest
+    if (req.query.sort === "price_asc") sortOption = { price: 1 };
+    else if (req.query.sort === "price_desc") sortOption = { price: -1 };
+    else if (req.query.sort === "rating") sortOption = { ratings: -1 };
+    else if (req.query.sort === "newest") sortOption = { createdAt: -1 };
 
     const count = await Product.countDocuments(filters);
     const products = await Product.find(filters)
       .limit(pageSize)
       .skip(pageSize * (page - 1))
-      .sort({ createdAt: -1 });
+      .sort(sortOption);
+
+    // Get distinct categories for filter bar
+    const categories = await Product.distinct("category");
 
     res.json({
       products,
       page,
       pages: Math.ceil(count / pageSize),
       totalProducts: count,
+      categories,
     });
   } catch (error) {
     next(error);
